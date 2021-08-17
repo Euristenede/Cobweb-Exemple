@@ -30,16 +30,16 @@ def cluster(arvore, instancias, mindiv=1, maxdiv=1, modificar=True):
 """
 def UC(cluster, folhas):
     raiz_temp = cluster[0].__class__()
-    raiz_temp.tree = cluster[0].tree
+    raiz_temp.arvore = cluster[0].arvore
     for c in set(cluster):
         filho_temp = cluster[0].__class__()
-        filho_temp.tree = c.tree
+        filho_temp.arvore = c.arvore
         for folha in folhas:
             if c.e_pai(folha):
                 filho_temp.atualizar_contagem_no(folha)
         raiz_temp.atualizar_contagem_no(filho_temp)
-        raiz_temp.children.append(filho_temp)
-    return -raiz_temp.category_utility()
+        raiz_temp.filho.append(filho_temp)
+    return -raiz_temp.utilidade_categoria()
 
 """
    Realiza o agrupamento baseado em conceitos
@@ -73,9 +73,9 @@ def agrupamento(arvore, instancias, heuristica=UC, mindiv=1, maxdiv=100000,
             clusters = []
             for i, c in enumerate(cluster_temporario):
                 child = None
-                while (c.parent and c.parent.parent):
+                while (c.pai and c.pai.pai):
                     child = c
-                    c = c.parent
+                    c = c.pai
                 if labels:
                     clusters.append("Conceito" + str(c.concept_id))
                 else:
@@ -87,7 +87,7 @@ def agrupamento(arvore, instancias, heuristica=UC, mindiv=1, maxdiv=100000,
         split_cus = []
 
         for i, alvo in enumerate(set(atribuir_cluster)):
-            if len(alvo.children) == 0:
+            if len(alvo.filho) == 0:
                 continue
             c_labels = [label if label != alvo else atribuir_cluster_filho[j]
                         for j, label in enumerate(atribuir_cluster)]
