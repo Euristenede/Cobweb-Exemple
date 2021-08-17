@@ -8,7 +8,7 @@ from random import shuffle
 from random import seed
 from cobweb import CobwebArvore
 from cluster import cluster
-
+import json
 from carregar_arquivos import carregar_cogumelos
 from carregar_arquivos import carregar_votos_congresso
 from carregar_arquivos import carregar_fogo_floresta
@@ -25,9 +25,17 @@ cogumelosSemClasse = [{a: cogumelos[a] for a in cogumelos
                        if a != 'classification'} for cogumelos in cogumelos]
 
 clustersCogumelo = next(cluster(arvoreCogumelo, cogumelosSemClasse))
+dicionario = {}
+for i in range(len(clustersCogumelo)):
+    dicionario[i] = {'grupo' : clustersCogumelo[i]}    
+    
+for i in range(len(cogumelos)):
+    cogumelos[i].update(dicionario[i])
 
-print(clustersCogumelo)
-
+jsonString = json.dumps(cogumelos)
+with open('cogumelos.txt', 'w') as outfile:
+    json.dump(cogumelos, outfile)
+    
 print("---------------------------------------------------------------------")
 """--------------------------Votos do Congresso----------------------------"""
 seed(0)
@@ -43,7 +51,16 @@ votoSemClasse = [{a: votos[a]
 
 clustersVoto = next(cluster(arvoreVotos, votoSemClasse))
 
-print(clustersVoto)
+dicionario = {}
+for i in range(len(clustersVoto)):
+    dicionario[i] = {'grupo' : clustersVoto[i]}    
+    
+for i in range(len(votosCongresso)):
+    votosCongresso[i].update(dicionario[i])
+
+jsonString = json.dumps(votosCongresso)
+with open('votosCongresso.txt', 'w') as outfile:
+    json.dump(votosCongresso, outfile)
 print("---------------------------------------------------------------------")
 """---------------------------Fogo na Floresta-----------------------------"""
 seed(0)
@@ -55,6 +72,14 @@ shuffle(fogoFloresta)
 arvoreFogo = CobwebArvore()
 clustersFogo = next(cluster(arvoreFogo, fogoFloresta))
 
-clust_set = {v: i for i, v in enumerate(list(set(clustersFogo)))}
+dicionario = {}
+for i in range(len(clustersFogo)):
+    dicionario[i] = {'grupo' : clustersFogo[i]}    
+    
+for i in range(len(fogoFloresta)):
+    fogoFloresta[i].update(dicionario[i])
 
-print(clustersFogo)
+jsonString = json.dumps(fogoFloresta)
+with open('fogoFloresta.txt', 'w') as outfile:
+    json.dump(fogoFloresta, outfile)
+
