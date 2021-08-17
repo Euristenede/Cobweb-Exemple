@@ -1,9 +1,16 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Aug 17 17:10:55 2021
+
+@author: euris
+"""
+
 """Carregar os arquivos formatados para o Cobweb"""
 from os.path import dirname
 from os.path import join
 import json
 
-"""Carrega os vetores de características e gera um objeto python"""
+"""Carrega dataset e gera um objeto python"""
 def _load_json(filename, num_instances=None):
     module_path = dirname(__file__)
     output = []
@@ -15,14 +22,11 @@ def _load_json(filename, num_instances=None):
     return output
 
 
-def carregar_fogo_floresta(num_instances=None):
-    return _load_json('fogo_floresta.json', num_instances)
+def carregar_fogo_floresta():
+    return _load_json('fogo_floresta.json')
 
+def carregar_votos_congresso():
+    return _load_json('votos_congresso.json')
 
-def carregar_votos_congresso(num_instances=None):
-    return _load_json('votos_congresso.json', num_instances)
-
-
-
-def carregar_cogumelos(num_instancias=None):
-    return _load_json('cogumelos.json', num_instancias)
+def carregar_cogumelos():
+    return _load_json('cogumelos.json')

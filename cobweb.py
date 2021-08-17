@@ -5,9 +5,6 @@ Created on Thu Aug 12 13:55:26 2021
 @author: euris
 """
 from random import random
-from math import log
-from utilidades import escolha_ponderada
-from utilidades import escolha_provavel
 
 
 class CobwebArvore(object):
@@ -95,18 +92,18 @@ class CobwebArvore(object):
                                                             best2, best1_cu)
 
                 # print(best_action)
-                if best_action == 'best':
+                if best_action == 'melhor':
                     current.increment_counts(instancia)
                     current = best1
-                elif best_action == 'new':
+                elif best_action == 'novo':
                     current.increment_counts(instancia)
                     current = current.create_new_child(instancia)
                     break
-                elif best_action == 'merge':
+                elif best_action == 'somar':
                     current.increment_counts(instancia)
                     new_child = current.merge(best1, best2)
                     current = new_child
-                elif best_action == 'split':
+                elif best_action == 'dividir':
                     current.split(best1)
                 else:
                     raise Exception('A melhor opção escolhida "' + best_action +
@@ -140,7 +137,7 @@ class CobwebNo(object):
         if otherNode:
             self.tree = otherNode.tree
             self.parent = otherNode.parent
-            self.update_counts_from_node(otherNode)
+            self.atualizar_contagem_no(otherNode)
 
             for child in otherNode.children:
                 self.children.append(self.__class__(child))
@@ -150,11 +147,11 @@ class CobwebNo(object):
        do nó para a tabela de probabilidade, sem manter referência de outros elementos
        da arvore, exeto para a raiz que é necessário calcular a CU categoria utilitária.
     """
-    def shallow_copy(self):
+    def copia_inicial(self):
         temp = self.__class__()
         temp.tree = self.tree
         temp.parent = self.parent
-        temp.update_counts_from_node(self)
+        temp.atualizar_contagem_no(self)
         return temp
     
     """
@@ -188,7 +185,7 @@ class CobwebNo(object):
     """
        Incrementa as contagens do nó atual de acordo com o nó especificado
     """
-    def update_counts_from_node(self, node):
+    def atualizar_contagem_no(self, node):
         self.count += node.count
         for attr in node.attrs('all'):
             if attr not in self.av_counts:
@@ -242,24 +239,27 @@ class CobwebNo(object):
     """
        Dado uma instância, os dois melhores filhos com base na utilidade da 
        categoria e um conjunto de operações possíveis, o método abaixo encontra 
+       a operação que gera a melor utilidade da categoria e e, seguida retorna 
+       a utilidade da categoria e a descrição utilizada para gerar a melhor categoria.
+       Em caso de dar empate, um operador é aleatóriamente escolhido.
     """
     def get_best_operation(self, instance, best1, best2, best1_cu,
-                           possible_ops=["best", "new", "merge", "split"]):
+                           possible_ops=["melhor", "novo", "somar", "dividir"]):
         if not best1:
-            raise ValueError("Need at least one best child.")
+            raise ValueError("Precisa de pelo menos um melhor filho.")
 
         operations = []
 
-        if "best" in possible_ops:
-            operations.append((best1_cu, random(), "best"))
-        if "new" in possible_ops:
+        if "melhor" in possible_ops:
+            operations.append((best1_cu, random(), "melhor"))
+        if "novo" in possible_ops:
             operations.append((self.cu_for_new_child(instance), random(),
-                               'new'))
-        if "merge" in possible_ops and len(self.children) > 2 and best2:
+                               'novo'))
+        if "somar" in possible_ops and len(self.children) > 2 and best2:
             operations.append((self.cu_for_merge(best1, best2, instance),
-                               random(), 'merge'))
-        if "split" in possible_ops and len(best1.children) > 0:
-            operations.append((self.cu_for_split(best1), random(), 'split'))
+                               random(), 'somar'))
+        if "dividir" in possible_ops and len(best1.children) > 0:
+            operations.append((self.cu_for_split(best1), random(), 'dividir'))
 
         operations.sort(reverse=True)
         # print(operations)
@@ -267,17 +267,23 @@ class CobwebNo(object):
         # print(best_op)
         return best_op
 
+
+    """
+       Calcula a utilidade da categoria para inserir a instância em cada um dos
+       nó filhos e retorna os dois melhores. Em caso de empate os filhos são classificados 
+       primeiro pela utilidade da categoria, depois por tamanho e, em seguida,por um valor aleatório.
+    """
     def two_best_children(self, instance):
         if len(self.children) == 0:
-            raise Exception("No children!")
+            raise Exception("Não há fihos.")
 
         children_relative_cu = [(self.relative_cu_for_insert(child, instance),
                                  child.count, random(), child) for child in
                                 self.children]
         children_relative_cu.sort(reverse=True)
 
-        # Convert the relative CU's of the two best children into CU scores
-        # that can be compared with the other operations.
+        # Converte as UCs relativas dos dois melhores nós filhos em pontuação UC
+        # que pode ser comparado com as outras operações
         const = self.compute_relative_CU_const(instance)
 
         best1 = children_relative_cu[0][3]
@@ -291,8 +297,14 @@ class CobwebNo(object):
 
         return best1_cu, best1, best2
 
+
+    """
+       Calcula o valor constante que é usado para converter entre CU e
+       pontuações CU relativas. O valor constante é basicamente a utilidade da 
+       categoria que resulta da adição da instância ao nó raiz.
+    """
     def compute_relative_CU_const(self, instance):
-        temp = self.shallow_copy()
+        temp = self.copia_inicial()
         temp.increment_counts(instance)
         ec_root_u = temp.expected_correct_guesses()
 
@@ -305,24 +317,40 @@ class CobwebNo(object):
         const /= len(self.children)
         return const
 
+
+    """
+       Calcula uma pontuação UC relativa para cada operação de inserção. A UC relativa
+       é mais eficiente para calcular uma operação de inserção e garante ter a mesma 
+       ordem de classificação que a pontuação da UC para verificar qual operação 
+       de inserção é a melhor.
+    """
     def relative_cu_for_insert(self, child, instance):
-        temp = child.shallow_copy()
+        temp = child.copia_inicial()
         temp.increment_counts(instance)
         return ((child.count + 1) * temp.expected_correct_guesses() -
                 child.count * child.expected_correct_guesses())
-
+    
+    
+    """
+       Calcule a utilidade da categoria para adicionar a instância a um nó filho especificado.
+    """
     def cu_for_insert(self, child, instance):
-        temp = self.shallow_copy()
+        temp = self.copia_inicial()
         temp.increment_counts(instance)
 
         for c in self.children:
-            temp_child = c.shallow_copy()
+            temp_child = c.copia_inicial()
             temp.children.append(temp_child)
             temp_child.parent = temp
             if c == child:
                 temp_child.increment_counts(instance)
         return temp.category_utility()
 
+
+    """
+       Cria um novo nó filho para o nó atual com as contagens inicializadas pela
+       instância fornecida.
+    """
     def create_new_child(self, instance):
         new_child = self.__class__()
         new_child.parent = self
@@ -331,6 +359,11 @@ class CobwebNo(object):
         self.children.append(new_child)
         return new_child
 
+    
+    """
+       Crie um novo nó filho para o nó atual com as contagens inicializadas pela
+       contagen do nó atual.
+    """
     def create_child_with_current_counts(self):
         if self.count > 0:
             new = self.__class__(self)
@@ -339,28 +372,33 @@ class CobwebNo(object):
             self.children.append(new)
             return new
 
+    """
+       Retorne a utilidade de categoria para criar um novo nó filho utilizando a
+       instância fornecida.
+    """
     def cu_for_new_child(self, instance):
-        temp = self.shallow_copy()
+        temp = self.copia_inicial()
         for c in self.children:
-            temp.children.append(c.shallow_copy())
+            temp.children.append(c.copia_inicial())
 
-        # temp = self.shallow_copy()
 
         temp.increment_counts(instance)
         temp.create_new_child(instance)
         return temp.category_utility()
-
+    
+    
+    """
+       Mesclar dois nós
+    """
     def merge(self, best1, best2):
         new_child = self.__class__()
         new_child.parent = self
         new_child.tree = self.tree
 
-        new_child.update_counts_from_node(best1)
-        new_child.update_counts_from_node(best2)
-        best1.parent = new_child
-        # best1.tree = new_child.tree
+        new_child.atualizar_contagem_no(best1)
+        new_child.atualizar_contagem_no(best2)
+        best1.parent = new_child        
         best2.parent = new_child
-        # best2.tree = new_child.tree
         new_child.children.append(best1)
         new_child.children.append(best2)
         self.children.remove(best1)
@@ -368,27 +406,35 @@ class CobwebNo(object):
         self.children.append(new_child)
 
         return new_child
-
+    
+    
+    """
+       Retorna a utilidade da categoria para mesclar os dois nós.
+    """
     def cu_for_merge(self, best1, best2, instance):
-        temp = self.shallow_copy()
+        temp = self.copia_inicial()
         temp.increment_counts(instance)
 
         new_child = self.__class__()
         new_child.tree = self.tree
         new_child.parent = temp
-        new_child.update_counts_from_node(best1)
-        new_child.update_counts_from_node(best2)
+        new_child.atualizar_contagem_no(best1)
+        new_child.atualizar_contagem_no(best2)
         new_child.increment_counts(instance)
         temp.children.append(new_child)
 
         for c in self.children:
             if c == best1 or c == best2:
                 continue
-            temp_child = c.shallow_copy()
+            temp_child = c.copia_inicial()
             temp.children.append(temp_child)
 
         return temp.category_utility()
-
+    
+    
+    """
+       Dividir um nó em dois nós filhos.
+    """
     def split(self, best):
         self.children.remove(best)
         for child in best.children:
@@ -396,8 +442,13 @@ class CobwebNo(object):
             child.tree = self.tree
             self.children.append(child)
 
+    
+    """
+       Retorna a utilidade da categoria para realizar uma divisão de franja, 
+       adicionar um nó folha a um outro nó folha.
+    """
     def cu_for_fringe_split(self, instance):
-        temp = self.shallow_copy()
+        temp = self.copia_inicial()
 
         temp.create_child_with_current_counts()
         temp.increment_counts(instance)
@@ -405,17 +456,25 @@ class CobwebNo(object):
 
         return temp.category_utility()
 
+
+    """
+       Retorna a utilidade da categoria para dividir o melhor nó filho.
+    """
     def cu_for_split(self, best):
-        temp = self.shallow_copy()
+        temp = self.copia_inicial()
 
         for c in self.children + best.children:
             if c == best:
                 continue
-            temp_child = c.shallow_copy()
+            temp_child = c.copia_inicial()
             temp.children.append(temp_child)
 
         return temp.category_utility()
-
+    
+    
+    """
+       Retorna verdadeiro se o conceito corresponde com a instância informada.
+    """
     def is_exact_match(self, instance):
         for attr in set(instance).union(set(self.attrs())):
             if attr[0] == '_':
@@ -431,34 +490,40 @@ class CobwebNo(object):
                     return False
         return True
 
-    def __hash__(self):
-        return hash("CobwebNode" + str(self.concept_id))
 
+    """
+       Gera um id unico para nomear os conceitos
+    """
     def gensym(self):
         self.__class__._counter += 1
         return self.__class__._counter
-        # return str(self.__class__._counter)
-
+    
+    
+    """
+       Chama o método imprime_arvore
+    """
     def __str__(self):
-        return self.pretty_print()
+        return self.imprime_arvore()
 
-    def pretty_print(self, depth=0):
+    
+    """
+       Imprime a arvore de categorias
+    """
+    def imprime_arvore(self, depth=0):
 
         ret = str(('\t' * depth) + "|-" + str(self.av_counts) + ":" +
                   str(self.count) + '\n')
 
         for c in self.children:
-            ret += c.pretty_print(depth+1)
+            ret += c.imprime_arvore(depth+1)
 
         return ret
 
-    def depth(self):
 
-        if self.parent:
-            return 1 + self.parent.depth()
-        return 0
-
-    def is_parent(self, other_concept):
+    """
+       Retorna verdadeiro se um conceito é pai de outro conceito
+    """
+    def e_pai(self, other_concept):
         temp = other_concept
         while temp is not None:
             if temp == self:
@@ -470,93 +535,3 @@ class CobwebNo(object):
                 assert False
         return False
 
-    def num_concepts(self):
-        children_count = 0
-        for c in self.children:
-            children_count += c.num_concepts()
-        return 1 + children_count
-
-    def output_json(self):
-        output = {}
-        output['name'] = "Concept" + str(self.concept_id)
-        output['size'] = self.count
-        output['children'] = []
-
-        temp = {}
-        for attr in self.attrs('all'):
-            for value in self.av_counts[attr]:
-                temp[str(attr)] = {str(value): self.av_counts[attr][value] for
-                                   value in self.av_counts[attr]}
-
-        for child in self.children:
-            output["children"].append(child.output_json())
-
-        output['counts'] = temp
-
-        return output
-
-    def get_weighted_values(self, attr, allow_none=True):
-        choices = []
-        if attr not in self.av_counts:
-            choices.append((None, 1.0))
-            return choices
-
-        val_count = 0
-        for val in self.av_counts[attr]:
-            count = self.av_counts[attr][val]
-            choices.append((val, count / self.count))
-            val_count += count
-
-        if allow_none:
-            choices.append((None, ((self.count - val_count) / self.count)))
-
-        return choices
-
-    def predict(self, attr, choice_fn="most likely", allow_none=True):
-        if choice_fn == "most likely" or choice_fn == "m":
-            choose = escolha_provavel()
-        elif choice_fn == "sampled" or choice_fn == "s":
-            choose = escolha_ponderada
-        else:
-            raise Exception("Unknown choice_fn")
-
-        if attr not in self.av_counts:
-            return None
-
-        choices = self.get_weighted_values(attr, allow_none)
-        val = choose(choices)
-        return val
-
-    def probability(self, attr, val):
-        if val is None:
-            c = 0.0
-            if attr in self.av_counts:
-                c = sum([self.av_counts[attr][v] for v in
-                         self.av_counts[attr]])
-            return (self.count - c) / self.count
-
-        if attr in self.av_counts and val in self.av_counts[attr]:
-            return self.av_counts[attr][val] / self.count
-
-        return 0.0
-
-    def log_likelihood(self, child_leaf):
-        ll = 0
-
-        for attr in set(self.attrs()).union(set(child_leaf.attrs())):
-            vals = set([None])
-            if attr in self.av_counts:
-                vals.update(self.av_counts[attr])
-            if attr in child_leaf.av_counts:
-                vals.update(child_leaf.av_counts[attr])
-
-            for val in vals:
-                op = child_leaf.probability(attr, val)
-                if op > 0:
-                    p = self.probability(attr, val) * op
-                    if p >= 0:
-                        ll += log(p)
-                    else:
-                        raise Exception("Should always be greater than 0")
-
-        return ll

@@ -35,9 +35,9 @@ def UC(cluster, folhas):
         filho_temp = cluster[0].__class__()
         filho_temp.tree = c.tree
         for folha in folhas:
-            if c.is_parent(folha):
-                filho_temp.update_counts_from_node(folha)
-        raiz_temp.update_counts_from_node(filho_temp)
+            if c.e_pai(folha):
+                filho_temp.atualizar_contagem_no(folha)
+        raiz_temp.atualizar_contagem_no(filho_temp)
         raiz_temp.children.append(filho_temp)
     return -raiz_temp.category_utility()
 
